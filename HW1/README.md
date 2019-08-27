@@ -1,5 +1,5 @@
 # HW 1
-The Thoery and experiments are both in [homework_1](homework_1.ipynb) Jupyter Notebook.
+The Theory and experiments are both in [homework_1](homework_1.ipynb) Jupyter Notebook.
 
 ## Exercises
 1. Do Exercise: 2.5
