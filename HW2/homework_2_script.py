@@ -3,14 +3,15 @@
 
 # # Requirements
 
-# In[2]:
+# In[1]:
 
 
-get_ipython().system('pip install tqdm')
+# !pip install tqdm
 
 import numpy as np
 import numpy.linalg as npla
 import matplotlib.pyplot as plt
+from scipy.optimize import fsolve
 from tqdm import tqdm
 
 
@@ -44,7 +45,7 @@ from tqdm import tqdm
 
 # ## Write code that solves the linear equations required to find v$_π$(s) and generate the values in the table in Figure 3.2. Note that the policy π picks all valid actions in a state with equal probability. Add comments to your code that explain all your steps.
 
-# In[3]:
+# In[9]:
 
 
 #Grid size
@@ -146,10 +147,10 @@ for s_r in range(n):
 v_pi = npla.solve(eqn, c).reshape((n, n))
 
 
-# In[5]:
+# In[10]:
 
 
-print('Gridworld')
+print('Value Function')
 print(np.round(v_pi, decimals=2))
 
 
@@ -185,10 +186,122 @@ print(np.round(v_pi, decimals=2))
 
 # ## Write code that generates the optimal state-value function and the optimal policy for the Gridworld in Figure 3.5. You want to solve the corresponding system of non-linear equations. Explain all your steps.
 
-# In[ ]:
+# In[19]:
 
 
+#Grid size
+n = 5
+#Number of states
+n_s = n*n
+#Number of actions
+n_a = 4
+#Position A
+A_r, A_c = 0, 1
+#Position A'
+A1_r, A1_c = 4, 1
+#Position B
+B_r, B_c = 0, 3
+#Position B'
+B1_r, B1_c = 2, 3
+#discount
+gamma = 0.9
 
+#Direction convention => 0:East, 1:North, 2:West, 3:South
+
+#Transition Fucntion: given current state and action taken returns new state(s1_c, s1_r) and reward(r) earned
+def transit(s_r, s_c, a):
+    s1_r, s1_c, r = -10, -10, -10
+    #Position A: leads to A' for all actions with +10 reward
+    if s_r == A_r and s_c == A_c:
+        s1_r, s1_c = A1_r, A1_c
+        r = 10
+    #Position B: leads to B' for all actions with +5 reward    
+    elif s_r == B_r and s_c == B_c:
+        s1_r, s1_c = B1_r, B1_c
+        r = 5
+    #East Boundary: going East -1 reward    
+    elif s_c == 0 and a == 0:
+        s1_r, s1_c = s_r, s_c
+        r = -1
+    #North Boundary: going North -1 reward    
+    elif s_r == 0 and a == 1:
+        s1_r, s1_c = s_r, s_c
+        r = -1
+    #West Boundary: going West -1 reward    
+    elif s_c == n-1 and a == 2:
+        s1_r, s1_c = s_r, s_c
+        r = -1
+    #South Boundary: going South -1 reward    
+    elif s_r == n-1 and a == 3:
+        s1_r, s1_c = s_r, s_c
+        r = -1
+    #Staying inside the grid with 0 reward
+    else:
+        #Going East
+        if a == 0:
+            s1_r, s1_c = s_r, s_c - 1
+        #Going North
+        elif a == 1:
+            s1_r, s1_c = s_r - 1, s_c
+        #Going West
+        elif a == 2:
+            s1_r, s1_c = s_r, s_c + 1
+        #Going South
+        else:
+            s1_r, s1_c = s_r + 1, s_c
+        #Gaining 0 reward
+        r = 0
+    
+    return s1_r, s1_c, r
+
+def equations(v):
+    v = v.reshape((n, n))
+    eqn = np.zeros((n, n))
+    
+    for s_r in range(n):
+        for s_c in range(n):
+            #exected returns on all actions
+            g = np.zeros(n_a)
+            for a in range(n_a):
+                #New states (s')
+                s1_r, s1_c, r = transit(s_r, s_c, a)
+                #exected return
+                g[a] = r + gamma*v[s1_r, s1_c]
+            eqn[s_r, s_c] = v[s_r, s_c] - np.amax(g)
+    
+    return eqn.flatten(order='F')
+
+def optimal_policy(v):
+    pi = np.zeros((n, n))
+    #Building optimal policy
+    for s_r in range(n):
+        for s_c in range(n):
+            #Expected Return for each action
+            g = np.zeros(n_a)
+            for a in range(n_a):
+                #new state and reward
+                s1_r, s1_c, r = transit(s_r, s_c, a)
+                #expected return
+                g[a] = r + (gamma * v[s1_r, s1_c])
+
+            #Policy Improvement
+            #Update value function
+            pi[s_r, s_c] = np.argmax(g)
+
+    return pi
+
+
+# In[20]:
+
+
+v = np.zeros(n*n)
+v_star = fsolve(equations, v).reshape(n, n)
+pi_star = optimal_policy(v_star)
+print('Optimal Value Function')
+print(np.round(v_star, decimals=2))
+print()
+print('Optimal Policy')
+print(pi_star)
 
 
 # ## Given an equation for v∗ in terms of q∗.
@@ -199,7 +312,7 @@ print(np.round(v_pi, decimals=2))
 
 # ## Code policy iteration and value iteration (VI) to solve the Gridworld in Example 4.1. Your code must log output of each iteration. Pick up a few sample iterations to show policy evaluation and improvement at work. Similarly, show using a few obtained iterations that every iteration of VI improves the value function. Your code must include the fix to the bug mentioned in Exercise 4.4.
 
-# In[169]:
+# In[2]:
 
 
 #grid Size
@@ -265,7 +378,7 @@ def transit_grid(s_r, s_c, a):
 
 # The bug mentioned in Exercise 4.4 is dealt by using numpy.argamx() which internally handles it, as it has follows a consistent convention when selecting between equal values. It always selects the one that has a lower index and since indexes of actions don't change in code, therefor it can't oscillate between equally favaourable policies as it will always choose the action with a lower index.
 
-# In[203]:
+# In[10]:
 
 
 def policy_iteration(n_1, n_2, n_a, theta, gamma, transit):
@@ -295,7 +408,7 @@ def policy_iteration(n_1, n_2, n_a, theta, gamma, transit):
                         #new state and reward
                         s1_r, s1_c, r = transit(s_r, s_c, a)
                         #Expected Return
-#                         print('s', s_r, s_c, ', a', a-5, 's1', s1_r, s1_c)
+                        print('s', s_r, s_c, ', a', a-5, 's1', s1_r, s1_c)
                         v_ += pi[s_r, s_c, a] * (r + (gamma * v[s1_r, s1_c]))
                     #update Value function
                     v[s_r, s_c] = v_
@@ -347,7 +460,7 @@ def policy_iteration(n_1, n_2, n_a, theta, gamma, transit):
     return v, pi
 
 
-# In[173]:
+# In[32]:
 
 
 v_star, pi_star = policy_iteration(n_1=n, n_2=n, n_a=n_a, theta=theta, gamma=gamma, transit=transit_grid)
@@ -360,7 +473,7 @@ print(np.argmax(pi_star, axis=2))
 
 # ### Value Iteration
 
-# In[164]:
+# In[5]:
 
 
 #Optimal Value Function
@@ -391,7 +504,7 @@ while True:
             g = np.zeros(n_a)
             for a in range(n_a):
                 #new state and reward
-                s1_r, s1_c, r = transit(s_r, s_c, a)
+                s1_r, s1_c, r = transit_grid(s_r, s_c, a)
                 #expected return
                 g[a] = r + (gamma * v[s1_r, s1_c])
             
@@ -422,7 +535,7 @@ for s_r in range(n):
         g = np.zeros(n_a)
         for a in range(n_a):
             #new state and reward
-            s1_r, s1_c, r = transit(s_r, s_c, a)
+            s1_r, s1_c, r = transit_grid(s_r, s_c, a)
             #expected return
             g[a] = r + (gamma * v[s1_r, s1_c])
 
@@ -431,7 +544,7 @@ for s_r in range(n):
         pi[s_r, s_c] = np.argmax(g)
 
 
-# In[165]:
+# In[6]:
 
 
 print('v_star')
@@ -445,7 +558,7 @@ print(pi)
 
 # ### Example 4.2
 
-# In[204]:
+# In[11]:
 
 
 #max cars allowed 
@@ -484,36 +597,36 @@ def transit_jack(s_1, s_2, a):
         ns_1, ns_2 = s_1-c, s_1+c
         #reward
         r = abs(c)*r_mov
-#         print('moved', c)
+        print('moved', c)
     
     #cars returned
     if s_1 != 0:
         ret_1 = min(n_1-1-ns_1, np.random.poisson(lret_1))
         ns_1 += ret_1
-#         print('return_1', ret_1)
+        print('return_1', ret_1)
     
     if s_2 != 0:
         ret_2 = min(n_2-1-ns_2, np.random.poisson(lret_2))
         ns_2 += ret_2
-#         print('return_2', ret_2)
+        print('return_2', ret_2)
 
     #cars rented
     if s_1 != 0:
         ren_1 = min(ns_1, np.random.poisson(lren_1))
         ns_1 -= ren_1
         r += r_ren * ren_1
-#         print('rented_1', ren_1)
+        print('rented_1', ren_1)
     
     if s_2 != 0:
         ren_2 = min(ns_2, np.random.poisson(lren_2))
         ns_2 -= ren_2
         r += r_ren * ren_2
-#         print('rented_2', ren_2)
+        print('rented_2', ren_2)
             
     return ns_1, ns_2, r
 
 
-# In[ ]:
+# In[12]:
 
 
 v_star, pi_star = policy_iteration(n_1=n_1, n_2=n_2, n_a=n_a, theta=theta, gamma=gamma, transit=transit_jack)
